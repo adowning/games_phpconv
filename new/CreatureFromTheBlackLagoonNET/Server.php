@@ -162,17 +162,20 @@ class Server
                         $responseSlotBet = $betline;
                     }
 
-                    $winTypeTmp = $slotSettings->GetSpinSettings($currentSlotEvent, $allbetCurrency, $lines);
-                    $winType = $winTypeTmp[0];
-                    $spinWinLimitCurrency = $winTypeTmp[1];
-                    $spinWinLimitCoins = ($slotSettings->CurrentDenom > 0) ? $spinWinLimitCurrency / $slotSettings->CurrentDenom : $spinWinLimitCurrency;
+                    // Read desiredWinType from gameStateData
+                    $desiredWinType = $gameStateData['desiredWinType'] ?? 'none';
+                    // $slotSettings->AllBet needs to be set if any subsequent logic (notably GetRandomPay if it were used) depends on it.
+                    // Since GetSpinSettings is removed and RTP logic is external, we only set it if essential for other parts.
+                    // For now, we assume no other part of PHP logic needs $slotSettings->AllBet.
+                    // If GetRandomPay or similar were to be called, ensure $slotSettings->AllBet = $allbetCoins; is set.
 
                     $reels = []; $totalWin = 0; $lineWins = [];
 
                     for ($i = 0; $i <= 500; $i++) {
                         $totalWin = 0; $lineWinsThisLoop = []; $cWins = array_fill(0, $lines, 0);
                         $wild = ['1']; $scatter = '0';
-                        $tempReels = $slotSettings->GetReelStrips($winType, $currentSlotEvent);
+                        // Use desiredWinType for GetReelStrips
+                        $tempReels = $slotSettings->GetReelStrips($desiredWinType, $currentSlotEvent);
 
                         if ($currentSlotEvent == 'freespin' && rand(1, 5) == 1 && ($slotSettings->GetGameData('CreatureFromTheBlackLagoonNETMonsterHealth') ?? 0) < 10) {
                             $tempReels['reel5'][rand(0, 2)] = 2;
@@ -217,11 +220,31 @@ class Server
                             if ($tempReels['reel'.$r][$p] == 2) $isMonsterShoot = true;
                         }}
                         if (($slotSettings->MaxWin > 0 && ($totalWin * $slotSettings->CurrentDenom) > $slotSettings->MaxWin)) { continue; }
-                        if ($winType=='bonus' && $scattersCount<3 && $wildsRespinCount==0 && !$isMonsterShoot && $currentSlotEvent!='freespin' && $currentSlotEvent !='respin') { continue; }
-                        if ($winType=='win' && $totalWin==0 && $scattersCount<3 && $wildsRespinCount==0 && !$isMonsterShoot) { continue; }
-                        if ($totalWin <= $spinWinLimitCoins || $winType == 'none') { $reels = $tempReels; $lineWins = $lineWinsThisLoop; break; }
+
+                        // Loop break conditions based on desiredWinType
+                        $bonusTriggered = $scattersCount >= 3 || $wildsRespinCount >= 1 || ($currentSlotEvent == 'freespin' && $isMonsterShoot);
+
+                        if ($desiredWinType == 'bonus') {
+                            if ($bonusTriggered) {
+                                $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
+                            }
+                        } else if ($desiredWinType == 'win') {
+                            if ($totalWin > 0 && !$bonusTriggered) {
+                                $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
+                            }
+                        } else { // 'none' or any other case
+                            if ($totalWin == 0 && !$bonusTriggered) {
+                                $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
+                            }
+                        }
+                        // If loop finishes without meeting desiredWinType, it will use the last generated reels.
+                        // Consider adding a counter or specific logic if desiredWinType is hard to achieve.
+                        if ($i == 500) { // Max iterations reached
+                            // Potentially log a warning here if desiredWinType was not met.
+                            $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
+                        }
                     }
-                    if(empty($reels) && isset($tempReels)) { $reels = $tempReels; $lineWins = $lineWinsThisLoop; }
+                    if(empty($reels) && isset($tempReels)) { $reels = $tempReels; $lineWins = $lineWinsThisLoop; } // Fallback
 
                     $finalReelsSymbols = $reels; $responseTotalWin = $totalWin; $responseWinLines = array_values($lineWins);
 
