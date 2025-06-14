@@ -377,13 +377,6 @@ class SlotSettings
             // This method will do nothing.
         }
 
-        public function GetSpinSettings($garantType = 'bet', $bet, $lines)
-        {
-            $this->AllBet = $bet * $lines;
-            // All RTP/win-type determination logic removed.
-            return ['status' => 'ok', 'all_bet' => $this->AllBet];
-        }
-
         public function getNewSpin($game, $spinWin = 0, $bonusWin = 0, $lines, $garantType = 'bet')
         {
             $curField = 10; // Default
