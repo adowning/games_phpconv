@@ -1,973 +1,327 @@
-<?php 
-namespace App\Games\NarcosNET
+<?php
+namespace App\Games\NarcosNET;
+
+use App\Games\Base\BaseSlotSettings;
+
+class SlotSettings extends BaseSlotSettings
 {
-    class SlotSettings
+    // Properties specific to NarcosNET or that override base properties (if any)
+    // Most common properties are now inherited from BaseSlotSettings.
+    // Ensure reel strips are public if accessed directly by Server.php logic (they are in Base)
+
+    public function __construct($gameStateData)
     {
-        public $playerId = null;
-        public $splitScreen = null;
-        public $reelStrip1 = null;
-        public $reelStrip2 = null;
-        public $reelStrip3 = null;
-        public $reelStrip4 = null;
-        public $reelStrip5 = null;
-        public $reelStrip6 = null;
-        public $reelStripBonus1 = null;
-        public $reelStripBonus2 = null;
-        public $reelStripBonus3 = null;
-        public $reelStripBonus4 = null;
-        public $reelStripBonus5 = null;
-        public $reelStripBonus6 = null;
-        public $slotId = '';
-        public $slotDBId = '';
-        public $Line = null;
-        public $scaleMode = null;
-        public $numFloat = null;
-        public $gameLine = null;
-        public $Bet = null;
-        public $isBonusStart = null;
-        public $Balance = null;
-        public $SymbolGame = null;
-        public $GambleType = null;
-        public $lastEvent = null;
-        public $Jackpots = [];
-        public $keyController = null;
-        public $slotViewState = null;
-        public $hideButtons = null;
-        public $slotReelsConfig = null;
-        public $slotFreeCount = null;
-        public $slotFreeMpl = null;
-        public $slotWildMpl = null;
-        public $slotExitUrl = null;
-        public $slotBonus = null;
-        public $slotBonusType = null;
-        public $slotScatterType = null;
-        public $slotGamble = null;
-        public $Paytable = [];
-        public $slotSounds = [];
-        public $jpgs = null;
-        private $Bank = null;
-        private $Percent = null;
-        private $WinLine = null;
-        private $WinGamble = null;
-        private $Bonus = null;
-        private $shop_id = null;
-        public $currency = null;
-        public $user = null;
-        public $game = null;
-        public $shop = null;
-        public $jpgPercentZero = false;
-        public $count_balance = null;
-        public $gameData = [];
-        public $gameDataStatic = [];
+        parent::__construct($gameStateData);
 
-        public $MaxWin = null;
-        public $CurrentDenom = 1; // Default value
-        public $increaseRTP = 1;
-        public $slotFastStop = 1;
-        public $Denominations = [];
-        public $CurrentDenomination = 1; // Will be updated by CurrentDenom value
-        public $slotJackPercent = [];
-        public $slotJackpot = [];
-        public $AllBet = 0;
-        public $slotCurrency = '';
-        // Add declarations for other frequently used properties if they are referenced via \$this-> but not declared:
-        // Based on review, the following are not currently used as class properties in SlotSettings/Server logic,
-        // but declaring with defaults if they *were* to be used:
-        // public \$slotLines = 0;
-        // public \$slotLineBet = 0;
-        // public \$slotLineCount = 0;
-        // public \$slotFreespin = false;
-        // public \$slotFreeTotWin = 0;
-        // public \$slotFreeTotFree = 0;
-        // public \$slotFreeSymbol = null;
-        // public \$slotBonusTotWin = 0;
-        // public \$slotBonusTotFree = 0;
-        // public \$slotBonusSymbol = null;
-        // public \$slotBonusCount = 0;
-        // public \$slotBonusWinType = null;
+        // NarcosNET Specific Paytable
+        $this->Paytable = [
+            'SYM_0' => [0,0,0,0,0,0], // Usually Scatter or Bonus, payouts might be handled differently
+            'SYM_1' => [0,0,0,20,80,300], // Example: High Value Symbol 1
+            'SYM_2' => [0,0,0,0,0,0], // Wild - might not have direct payout or handled by substitution
+            'SYM_3' => [0,0,0,20,80,300], // Example: High Value Symbol 2
+            'SYM_4' => [0,0,0,20,80,300], // Example: High Value Symbol 3
+            'SYM_5' => [0,0,0,15,60,250], // Example: Medium Value Symbol 1
+            'SYM_6' => [0,0,0,15,60,250], // Example: Medium Value Symbol 2
+            'SYM_7' => [0,0,0,10,30,120], // Example: Low Value Symbol 1
+            'SYM_8' => [0,0,0,10,30,120], // Example: Low Value Symbol 2
+            'SYM_9' => [0,0,0,5,15,60],   // Example: Low Value Symbol 3
+            'SYM_10' => [0,0,0,5,15,60],  // Example: Low Value Symbol 4
+            'SYM_11' => [0,0,0,5,10,40],  // Example: Low Value Symbol 5
+            'SYM_12' => [0,0,0,5,10,40]   // Example: Low Value Symbol 6
+        ];
 
-        public function __construct($gameStateData)
+        // NarcosNET Specific SymbolGame
+        $this->SymbolGame = $gameStateData['game']['SymbolGame'] ?? ['1','2','3','4','5','6','7','8','9','10','11','12'];
+
+        // NarcosNET Specific slotFreeCount
+        $this->slotFreeCount = $gameStateData['game']['slotFreeCount'] ?? [0,0,0,10,10,10]; // Narcos specific free spin counts
+
+        // NarcosNET GameReel instantiation and population
+        // This assumes GameReel.php is available and correctly namespaced or included.
+        // If GameReel itself needs to be namespaced, ensure it's `App\Games\NarcosNET\GameReel`.
+        $reel = new GameReel(); // May need to be `new \App\Games\NarcosNET\GameReel();` if namespace not auto-resolved
+        foreach (['reelStrip1', 'reelStrip2', 'reelStrip3', 'reelStrip4', 'reelStrip5', 'reelStrip6'] as $reelStrip) {
+            if (isset($reel->reelsStrip[$reelStrip]) && count($reel->reelsStrip[$reelStrip])) {
+                $this->$reelStrip = $reel->reelsStrip[$reelStrip];
+            }
+        }
+        // Bonus reels if they exist in NarcosNET's GameReel.php
+        foreach (['reelStripBonus1', 'reelStripBonus2', 'reelStripBonus3', 'reelStripBonus4', 'reelStripBonus5', 'reelStripBonus6'] as $reelStrip) {
+             if (isset($reel->reelsStripBonus[$reelStrip]) && count($reel->reelsStripBonus[$reelStrip])) {
+                 $this->$reelStrip = $reel->reelsStripBonus[$reelStrip];
+             }
+        }
+
+        // NarcosNET specific keyController
+        $this->keyController = $gameStateData['game']['keyController'] ?? [
+            '13' => 'uiButtonSpin,uiButtonSkip', '49' => 'uiButtonInfo', '50' => 'uiButtonCollect',
+            '51' => 'uiButtonExit2', '52' => 'uiButtonLinesMinus', '53' => 'uiButtonLinesPlus',
+            '54' => 'uiButtonBetMinus', '55' => 'uiButtonBetPlus', '56' => 'uiButtonGamble',
+            '57' => 'uiButtonRed', '48' => 'uiButtonBlack', '189' => 'uiButtonAuto', '187' => 'uiButtonSpin'
+        ];
+
+        // NarcosNET specific slotReelsConfig
+        $this->slotReelsConfig = $gameStateData['game']['slotReelsConfig'] ?? [
+            [425,142,3], [669,142,3], [913,142,3], [1157,142,3], [1401,142,3]
+        ];
+
+        // NarcosNET specific line/bet configurations (if not covered by general ones in Base)
+        // BaseSlotSettings already initializes Line, gameLine, Bet from gameStateData['game'] keys
+        // lines_values, gameLine_values, bet_values. Ensure these keys are provided in gameStateData
+        // or override here if NarcosNET uses different keys or has fixed values.
+        // For example, if NarcosNET uses fixed lines:
+        // $this->Line = [1,2,3, ... , 243]; // for 243 ways
+        // $this->gameLine = [1,2,3, ... , 243];
+
+        // Other NarcosNET specific properties (already in BaseSlotSettings, but can be overridden if needed)
+        $this->slotBonusType = $gameStateData['game']['slotBonusType'] ?? 1; // Example, if Narcos has a specific default
+        $this->slotScatterType = $gameStateData['game']['slotScatterType'] ?? 0; // Example
+        $this->splitScreen = $gameStateData['game']['splitScreen'] ?? false; // Example
+        // $this->slotExitUrl = '/'; // Already in Base
+
+        // The jpgPercentZero logic is identical to BaseSlotSettings, so it's inherited.
+    }
+
+    // Retained NarcosNET-specific methods
+    public function CheckBonusWin()
+    {
+        $allRateCnt = 0;
+        $allRate = 0;
+        foreach( $this->Paytable as \$vl )
         {
-            $this->playerId = $gameStateData['playerId'] ?? null;
-            $this->user = (object) ($gameStateData['user'] ?? []);
-            $this->game = (object) ($gameStateData['game'] ?? []);
-            $this->shop = (object) ($gameStateData['shop'] ?? []);
-            $this->Bank = $gameStateData['bank'] ?? 0;
-            $this->Balance = $gameStateData['balance'] ?? 0;
-            $this->Percent = $gameStateData['shop']['percent'] ?? 0;
-            $this->gameData = $gameStateData['gameData'] ?? [];
-            $this->currency = $gameStateData['currency'] ?? '';
-            $this->slotId = $gameStateData['game']['name'] ?? '';
-            $this->slotDBId = $gameStateData['game']['id'] ?? '';
-            $this->MaxWin = $gameStateData['shop']['max_win'] ?? 0;
-
-            $this->Denominations = isset($gameStateData['game']['denominations_list']) && is_array($gameStateData['game']['denominations_list']) ? $gameStateData['game']['denominations_list'] : (isset($gameStateData['game']['denominations_list']) ? explode(',', $gameStateData['game']['denominations_list']) : []);
-            $this->CurrentDenom = isset($gameStateData['game']['denomination']) ? $gameStateData['game']['denomination'] : (!empty($this->Denominations) ? $this->Denominations[0] : 1);
-            $this->CurrentDenomination = $this->CurrentDenom; // Ensure CurrentDenomination reflects CurrentDenom
-            $this->AllBet = 0; // Explicitly initialize AllBet
-
-            $this->jpgs = isset($gameStateData['jpgs']) ? $gameStateData['jpgs'] : [];
-            $this->shop_id = $gameStateData['user']['shop_id'] ?? 0;
-            $this->count_balance = $gameStateData['user']['count_balance'] ?? 0;
-
-            $this->increaseRTP = $gameStateData['game']['increaseRTP'] ?? 1;
-            $this->slotFastStop = $gameStateData['game']['slotFastStop'] ?? 1;
-            $this->slotJackPercent = $gameStateData['game']['slotJackPercent'] ?? [];
-            $this->slotJackpot = $gameStateData['game']['slotJackpot'] ?? [];
-            $this->slotCurrency = $gameStateData['currency'] ?? ($this->shop->currency ?? '');
-
-
-            // Keep existing Paytable initialization
-            // $this->increaseRTP = 1; // Now initialized from $gameStateData or default
-            $this->scaleMode = 0;
-            $this->numFloat = 0;
-            $this->Paytable['SYM_0'] = [
-                0, 
-                0, 
-                0, 
-                0, 
-                0, 
-                0
-            ];
-            $this->Paytable['SYM_1'] = [
-                0, 
-                0, 
-                0, 
-                20, 
-                80, 
-                300
-            ];
-            $this->Paytable['SYM_2'] = [
-                0, 
-                0, 
-                0, 
-                0, 
-                0, 
-                0
-            ];
-            $this->Paytable['SYM_3'] = [
-                0, 
-                0, 
-                0, 
-                20, 
-                80, 
-                300
-            ];
-            $this->Paytable['SYM_4'] = [
-                0, 
-                0, 
-                0, 
-                20, 
-                80, 
-                300
-            ];
-            $this->Paytable['SYM_5'] = [
-                0, 
-                0, 
-                0, 
-                15, 
-                60, 
-                250
-            ];
-            $this->Paytable['SYM_6'] = [
-                0, 
-                0, 
-                0, 
-                15, 
-                60, 
-                250
-            ];
-            $this->Paytable['SYM_7'] = [
-                0, 
-                0, 
-                0, 
-                10, 
-                30, 
-                120
-            ];
-            $this->Paytable['SYM_8'] = [
-                0, 
-                0, 
-                0, 
-                10, 
-                30, 
-                120
-            ];
-            $this->Paytable['SYM_9'] = [
-                0, 
-                0, 
-                0, 
-                5, 
-                15, 
-                60
-            ];
-            $this->Paytable['SYM_10'] = [
-                0, 
-                0, 
-                0, 
-                5, 
-                15, 
-                60
-            ];
-            $this->Paytable['SYM_11'] = [
-                0, 
-                0, 
-                0, 
-                5, 
-                10, 
-                40
-            ];
-            $this->Paytable['SYM_12'] = [
-                0, 
-                0, 
-                0, 
-                5, 
-                10, 
-                40
-            ];
-            $reel = new GameReel();
-            foreach( [
-                'reelStrip1', 
-                'reelStrip2', 
-                'reelStrip3', 
-                'reelStrip4', 
-                'reelStrip5', 
-                'reelStrip6'
-            ] as $reelStrip ) 
+            foreach( \$vl as \$vl2 )
             {
-                if( count($reel->reelsStrip[$reelStrip]) ) 
+                if( \$vl2 > 0 )
                 {
-                    $this->$reelStrip = $reel->reelsStrip[$reelStrip];
+                    \$allRateCnt++;
+                    \$allRate += \$vl2;
+                    break;
                 }
             }
-            $this->keyController = [
-                '13' => 'uiButtonSpin,uiButtonSkip', 
-                '49' => 'uiButtonInfo', 
-                '50' => 'uiButtonCollect', 
-                '51' => 'uiButtonExit2', 
-                '52' => 'uiButtonLinesMinus', 
-                '53' => 'uiButtonLinesPlus', 
-                '54' => 'uiButtonBetMinus', 
-                '55' => 'uiButtonBetPlus', 
-                '56' => 'uiButtonGamble', 
-                '57' => 'uiButtonRed', 
-                '48' => 'uiButtonBlack', 
-                '189' => 'uiButtonAuto', 
-                '187' => 'uiButtonSpin'
-            ];
-            $this->slotReelsConfig = [
-                [
-                    425, 
-                    142, 
-                    3
-                ], 
-                [
-                    669, 
-                    142, 
-                    3
-                ], 
-                [
-                    913, 
-                    142, 
-                    3
-                ], 
-                [
-                    1157, 
-                    142, 
-                    3
-                ], 
-                [
-                    1401, 
-                    142, 
-                    3
-                ]
-            ];
-            $this->slotBonusType = 1;
-            $this->slotScatterType = 0;
-            $this->splitScreen = false;
-            $this->slotBonus = true;
-            $this->slotGamble = true;
-            $this->slotFastStop = $gameStateData['game']['slotFastStop'] ?? 1; // Keep if it's a general setting
-            $this->slotExitUrl = '/'; // Static or from gameStateData if needed
-            $this->slotWildMpl = 1; // Static or from gameStateData if needed
-            $this->GambleType = 1; // Static or from gameStateData if needed
-
-            // Denominations, CurrentDenom, CurrentDenomination are now initialized above from $gameStateData
-
-            $this->slotFreeCount = [
-                0,
-                0,
-                0, 
-                10, 
-                10, 
-                10
-            ];
-            $this->slotFreeMpl = 1;
-            $this->slotViewState = $gameStateData['game']['slotViewState'] ?? 'Normal';
-            $this->hideButtons = [];
-            // $this->jpgs already initialized
-            // $this->slotJackPercent and $this->slotJackpot are now initialized from $gameStateData['game'] directly or default to []
-            // Loop for jp_1 etc. is removed as per refined instruction.
-
-            $this->Line = isset($gameStateData['game']['lines']) ? (is_array($gameStateData['game']['lines']) ? $gameStateData['game']['lines'] : explode(',', $gameStateData['game']['lines'])) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-            $this->gameLine = isset($gameStateData['game']['gameLine']) ? (is_array($gameStateData['game']['gameLine']) ? $gameStateData['game']['gameLine'] : explode(',', $gameStateData['game']['gameLine'])) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-            $this->Bet = isset($gameStateData['game']['bet']) ? (is_array($gameStateData['game']['bet']) ? $gameStateData['game']['bet'] : explode(',', $gameStateData['game']['bet'])) : [];
-            // Balance is already initialized
-            $this->SymbolGame = isset($gameStateData['game']['SymbolGame']) ? (is_array($gameStateData['game']['SymbolGame']) ? $gameStateData['game']['SymbolGame'] : explode(',', $gameStateData['game']['SymbolGame'])) : ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-            // Bank is already initialized
-            // Percent is already initialized
-            $this->WinGamble = $gameStateData['game']['rezerv'] ?? 0;
-            // slotDBId is already initialized
-            // slotCurrency is already initialized
-            // count_balance is already initialized from $gameStateData
-
-            if( ($this->user->address ?? 0) > 0 && $this->count_balance == 0 )
-            {
-                $this->Percent = 0;
-                $this->jpgPercentZero = true;
-            }
-            else if( $this->count_balance == 0 )
-            {
-                $this->Percent = 100;
-            }
-
-            // gameData is already initialized from $gameStateData
-            // Remove unserialization of $this->user->session
-            // Remove unserialization of $this->game->advanced for gameDataStatic
-            if( !isset($gameStateData['gameDataStatic']) ) {
-                $this->gameDataStatic = [];
-            } else {
-                $this->gameDataStatic = $gameStateData['gameDataStatic'];
-            }
         }
-        public function is_active()
+        return \$allRateCnt > 0 ? \$allRate / \$allRateCnt : 0;
+    }
+
+    public function GetRandomPay()
+    {
+        // This method's logic seems to rely on $this->game->stat_in and $this->game->stat_out
+        // which are part of the $this->game object initialized from $gameStateData.
+        // It also uses $this->AllBet which is currently not set as GetSpinSettings was removed.
+        // If this method is to be kept functional, $this->AllBet needs to be set by Server.php.
+        // For now, porting as is, but it's likely deprecated RTP logic.
+        \$allRate = [];
+        foreach( \$this->Paytable as \$vl )
         {
-            // Remove all database checks involving $this->game->view, $this->shop->is_blocked, $this->user->is_blocked, \App\Session::where(...)
-            return true;
-        }
-        public function SetGameData($key, $value)
-        {
-            $timeLife = 86400;
-            $this->gameData[$key] = [
-                'timelife' => time() + $timeLife, 
-                'payload' => $value
-            ];
-        }
-        public function GetGameData($key)
-        {
-            if( isset($this->gameData[$key]) ) 
+            foreach( \$vl as \$vl2 )
             {
-                return $this->gameData[$key]['payload'];
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        public function FormatFloat($num)
-        {
-            $str0 = explode('.', $num);
-            if( isset($str0[1]) ) 
-            {
-                if( strlen($str0[1]) > 4 ) 
+                if( \$vl2 > 0 )
                 {
-                    return round($num * 100) / 100;
+                    \$allRate[] = \$vl2;
                 }
-                else if( strlen($str0[1]) > 2 ) 
+            }
+        }
+        shuffle(\$allRate);
+        if(empty(\$allRate)) return 0; // Prevent error on empty paytable
+
+        if( (\$this->game->stat_in ?? 0) < ((\$this->game->stat_out ?? 0) + (\$allRate[0] * \$this->AllBet)) )
+        {
+            \$allRate[0] = 0;
+        }
+        return \$allRate[0];
+    }
+
+    public function getNewSpin(\$game, \$spinWin = 0, \$bonusWin = 0, \$lines, \$garantType = 'bet')
+    {
+        // This method uses \$game parameter which is $this->game.
+        // It also uses $game->game_win which should be passed in gameStateData['game']['game_win']
+        \$curField = 243; // Narcos default for ways games often
+
+        if( \$garantType != 'bet' ) { \$pref = '_bonus'; }
+        else { \$pref = ''; }
+
+        \$winConfig = (array)(\$this->game->game_win ?? []);
+        \$win = [];
+
+        if( \$spinWin && isset(\$winConfig['winline' . \$pref . \$curField]) )
+        {
+            \$win = explode(',', \$winConfig['winline' . \$pref . \$curField]);
+        }
+        else if( \$bonusWin && isset(\$winConfig['winbonus' . \$pref . \$curField]) )
+        {
+            \$win = explode(',', \$winConfig['winbonus' . \$pref . \$curField]);
+        }
+
+        if (!empty(\$win)) {
+            \$number = rand(0, count(\$win) - 1);
+            return \$win[\$number];
+        }
+        return 0; // Default return if no win lines found
+    }
+
+    public function GetRandomScatterPos(\$rp, \$rsym) // $rsym seems Narcos specific
+    {
+        \$rpResult = [];
+        if(!is_array(\$rp)) return rand(0,2); // Fallback
+
+        for( \$i = 0; \$i < count(\$rp); \$i++ )
+        {
+            if( \$rp[\$i] == \$rsym )
+            {
+                if( \$rsym == '2' ) // Specific to Narcos Wild symbol?
                 {
-                    return floor($num * 100) / 100;
+                    if( isset(\$rp[\$i + 1]) && isset(\$rp[\$i - 1]) )
+                    {
+                        array_push(\$rpResult, \$i + 1);
+                    }
                 }
                 else
                 {
-                    return $num;
+                    if( isset(\$rp[\$i + 1]) && isset(\$rp[\$i - 1]) ) { array_push(\$rpResult, \$i); }
+                    if( isset(\$rp[\$i - 1]) && isset(\$rp[\$i - 2]) ) { array_push(\$rpResult, \$i - 1); }
+                    if( isset(\$rp[\$i + 1]) && isset(\$rp[\$i + 2]) ) { array_push(\$rpResult, \$i + 1); }
                 }
             }
-            else
-            {
-                return $num;
-            }
         }
-        public function SaveGameData()
+        shuffle(\$rpResult);
+        if( !isset(\$rpResult[0]) )
         {
-            // Method body is now empty
+            // Ensure count(\$rp) is greater than 2 to avoid error in rand
+            return (count(\$rp) > 2) ? rand(1, count(\$rp) - 2) : 0;
         }
-        public function CheckBonusWin()
-        {
-            $allRateCnt = 0;
-            $allRate = 0;
-            foreach( $this->Paytable as $vl ) 
-            {
-                foreach( $vl as $vl2 ) 
-                {
-                    if( $vl2 > 0 ) 
-                    {
-                        $allRateCnt++;
-                        $allRate += $vl2;
-                        break;
-                    }
-                }
-            }
-            return $allRate / $allRateCnt;
-        }
-        public function GetRandomPay()
-        {
-            $allRate = [];
-            foreach( $this->Paytable as $vl ) 
-            {
-                foreach( $vl as $vl2 ) 
-                {
-                    if( $vl2 > 0 ) 
-                    {
-                        $allRate[] = $vl2;
-                    }
-                }
-            }
-            shuffle($allRate);
-            if( $this->game->stat_in < ($this->game->stat_out + ($allRate[0] * $this->AllBet)) ) 
-            {
-                $allRate[0] = 0;
-            }
-            return $allRate[0];
-        }
-        public function HasGameDataStatic($key)
-        {
-            if( isset($this->gameDataStatic[$key]) ) 
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        public function SaveGameDataStatic()
-        {
-            // $this->game->advanced = serialize($this->gameDataStatic);
-            // $this->game->save();
-            // $this->game->refresh();
-        }
-        public function SetGameDataStatic($key, $value)
-        {
-            $timeLife = 86400;
-            $this->gameDataStatic[$key] = [
-                'timelife' => time() + $timeLife, 
-                'payload' => $value
-            ];
-        }
-        public function GetGameDataStatic($key)
-        {
-            if( isset($this->gameDataStatic[$key]) ) 
-            {
-                return $this->gameDataStatic[$key]['payload'];
-            }
-            else
-            {
-                return 0;
-            }
-        }
-        public function HasGameData($key)
-        {
-            if( isset($this->gameData[$key]) ) 
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        public function GetHistory()
-        {
-            // Remove database call \App\GameLog::whereRaw(...)
-            // Return a default value, e.g., 'NULL' or an empty array, as history is no longer managed here.
-            return 'NULL';
-        }
-        public function UpdateJackpots($bet)
-        {
-            // Make the entire method body empty.
-            // Clear the $this->Jackpots array
-            $this->Jackpots = [];
-        }
-        public function GetBank($slotState = '')
-        {
-            // Remove $game = $this->game;
-            // Change $this->Bank = $game->get_gamebank($slotState); return $this->Bank / $this->CurrentDenom; to return $this->Bank;
-            return $this->Bank;
-        }
-        public function GetPercent()
-        {
-            // Should now use $this->Percent which is set from $gameStateData['shop']['percent']
-            return $this->Percent;
-        }
-        public function GetCountBalanceUser()
-        {
-            // Should use $this->count_balance set from $gameStateData['user']['count_balance']
-            return $this->count_balance;
-        }
-        public function InternalError($errcode)
-        {
-            $strLog = '';
-            $strLog .= "\n";
-            $strLog .= ('{"responseEvent":"error","responseType":"' . $errcode . '","serverResponse":"InternalError","request":' . json_encode($_REQUEST) . ',"requestRaw":' . file_get_contents('php://input') . '}');
-            $strLog .= "\n";
-            $strLog .= ' ############################################### ';
-            $strLog .= "\n";
-            $slg = '';
-            if( file_exists(__DIR__ . '/logs/' . $this->slotId . 'Internal.log') )
-            {
-                $slg = file_get_contents(__DIR__ . '/logs/' . $this->slotId . 'Internal.log');
-            }
-            file_put_contents(__DIR__ . '/logs/' . $this->slotId . 'Internal.log', $slg . $strLog);
-            exit( '' );
-        }
-        public function InternalErrorSilent($errcode)
-        {
-            $strLog = '';
-            $strLog .= "\n";
-            $strLog .= ('{"responseEvent":"error","responseType":"' . $errcode . '","serverResponse":"InternalError","request":' . json_encode($_REQUEST) . ',"requestRaw":' . file_get_contents('php://input') . '}');
-            $strLog .= "\n";
-            $strLog .= ' ############################################### ';
-            $strLog .= "\n";
-            $slg = '';
-            if( file_exists(__DIR__ . '/logs/' . $this->slotId . 'Internal.log') )
-            {
-                $slg = file_get_contents(__DIR__ . '/logs/' . $this->slotId . 'Internal.log');
-            }
-            file_put_contents(__DIR__ . '/logs/' . $this->slotId . 'Internal.log', $slg . $strLog);
-        }
-        public function SetBank($slotState = '', $sum, $slotEvent = '')
-        {
-            if( $this->isBonusStart || $slotState == 'bonus' || $slotState == 'freespin' || $slotState == 'respin' ) 
-            {
-                $slotState = 'bonus';
-            }
-            else
-            {
-                $slotState = '';
-            }
-            if( $this->GetBank($slotState) + $sum < 0 ) 
-            {
-                $this->InternalError('Bank_   ' . $sum . '  CurrentBank_ ' . $this->GetBank($slotState) . ' CurrentState_ ' . $slotState . ' Trigger_ ' . ($this->GetBank($slotState) + $sum));
-            }
-            // Remove all lines that call $game->set_gamebank(...) and $game->save().
-            // Change to: $this->Bank += $sum;
-            // Remove return $game;
-            $this->Bank += $sum;
-        }
+        return \$rpResult[0];
+    }
 
-        public function SetBalance($sum, $slotEvent = '')
+    public function GetCluster(\$reels) // Narcos specific cluster logic
+    {
+        for( \$p = 0; \$p <= 2; \$p++ )
         {
-            // Remove all lines that interact with $this->user model directly
-            // Change to: $this->Balance += $sum;
-            // Remove return $this->user;
-            $this->Balance += $sum;
-        }
-        public function GetBalance()
-        {
-            // Remove $user = $this->user;
-            // Change $this->Balance = $user->balance / $this->CurrentDenom; to return $this->Balance;
-            return $this->Balance;
-        }
-        public function SaveLogReport($spinSymbols, $bet, $lines, $win, $slotState)
-        {
-            // Make the entire method body empty.
-        }
-        public function GetSpinSettings($garantType = 'bet', $bet, $lines)
-        {
-            $curField = 10;
-            switch( $lines ) 
+            for( \$r = 1; \$r <= 5; \$r++ )
             {
-                case 10:
-                    $curField = 10;
-                    break;
-                case 9:
-                case 8:
-                    $curField = 9;
-                    break;
-                case 7:
-                case 6:
-                    $curField = 7;
-                    break;
-                case 5:
-                case 4:
-                    $curField = 5;
-                    break;
-                case 3:
-                case 2:
-                    $curField = 3;
-                    break;
-                case 1:
-                    $curField = 1;
-                    break;
-                default:
-                    $curField = 10;
-                    break;
-            }
-            if( $garantType != 'bet' ) 
-            {
-                $pref = '_bonus';
-            }
-            else
-            {
-                $pref = '';
-            }
-            $this->AllBet = $bet * $lines;
-            $linesPercentConfigSpin = $this->game->get_lines_percent_config('spin');
-            $linesPercentConfigBonus = $this->game->get_lines_percent_config('bonus');
-            $currentPercent = $this->shop->percent;
-            $currentSpinWinChance = 0;
-            $currentBonusWinChance = 0;
-            $percentLevel = '';
-            foreach( $linesPercentConfigSpin['line' . $curField . $pref] as $k => $v ) 
-            {
-                $l = explode('_', $k);
-                $l0 = $l[0];
-                $l1 = $l[1];
-                if( $l0 <= $currentPercent && $currentPercent <= $l1 ) 
+                if( \$reels['reel' . \$r][\$p] == '2' )
                 {
-                    $percentLevel = $k;
-                    break;
-                }
-            }
-            $currentSpinWinChance = $linesPercentConfigSpin['line' . $curField . $pref][$percentLevel];
-            $currentBonusWinChance = $linesPercentConfigBonus['line' . $curField . $pref][$percentLevel];
-            $RtpControlCount = 200;
-            if( !$this->HasGameDataStatic('SpinWinLimit') ) 
-            {
-                $this->SetGameDataStatic('SpinWinLimit', 0);
-            }
-            if( !$this->HasGameDataStatic('RtpControlCount') ) 
-            {
-                $this->SetGameDataStatic('RtpControlCount', $RtpControlCount);
-            }
-            if( ($this->game->stat_in ?? 0) > 0 )
-            {
-                $rtpRange = ($this->game->stat_out ?? 0) / $this->game->stat_in * 100;
-            }
-            else
-            {
-                $rtpRange = 0;
-            }
-            if( $this->GetGameDataStatic('RtpControlCount') == 0 )
-            {
-                if( $currentPercent + rand(1, 2) < $rtpRange && $this->GetGameDataStatic('SpinWinLimit') <= 0 )
-                {
-                    $this->SetGameDataStatic('SpinWinLimit', rand(25, 50));
-                }
-                if( $pref == '' && $this->GetGameDataStatic('SpinWinLimit') > 0 )
-                {
-                    $currentBonusWinChance = 5000;
-                    $currentSpinWinChance = 20;
-                    $this->MaxWin = rand(1, 5);
-                    if( $rtpRange < ($currentPercent - 1) )
+                    if( \$p == 0 && \$r == 1 )
                     {
-                        $this->SetGameDataStatic('SpinWinLimit', 0);
-                        $this->SetGameDataStatic('RtpControlCount', $this->GetGameDataStatic('RtpControlCount') - 1);
-                    }
-                }
-            }
-            else if( $this->GetGameDataStatic('RtpControlCount') < 0 )
-            {
-                if( $currentPercent + rand(1, 2) < $rtpRange && $this->GetGameDataStatic('SpinWinLimit') <= 0 )
-                {
-                    $this->SetGameDataStatic('SpinWinLimit', rand(25, 50));
-                }
-                $this->SetGameDataStatic('RtpControlCount', $this->GetGameDataStatic('RtpControlCount') - 1);
-                if( $pref == '' && $this->GetGameDataStatic('SpinWinLimit') > 0 )
-                {
-                    $currentBonusWinChance = 5000;
-                    $currentSpinWinChance = 20;
-                    $this->MaxWin = rand(1, 5);
-                    if( $rtpRange < ($currentPercent - 1) )
-                    {
-                        $this->SetGameDataStatic('SpinWinLimit', 0);
-                    }
-                }
-                if( $this->GetGameDataStatic('RtpControlCount') < (-1 * $RtpControlCount) && $currentPercent - 1 <= $rtpRange && $rtpRange <= ($currentPercent + 2) )
-                {
-                    $this->SetGameDataStatic('RtpControlCount', $RtpControlCount);
-                }
-            }
-            else
-            {
-                $this->SetGameDataStatic('RtpControlCount', $this->GetGameDataStatic('RtpControlCount') - 1);
-            }
-            $bonusWin = rand(1, $currentBonusWinChance);
-            $spinWin = rand(1, $currentSpinWinChance);
-            $return = [
-                'none', 
-                0
-            ];
-            if( $bonusWin == 1 && $this->slotBonus ) 
-            {
-                $this->isBonusStart = true;
-                $garantType = 'bonus';
-                $winLimit = $this->GetBank($garantType);
-                $return = [
-                    'bonus',
-                    $winLimit
-                ];
-                if( ($this->game->stat_in ?? 0) < ($this->CheckBonusWin() * $bet + ($this->game->stat_out ?? 0)) || $winLimit < ($this->CheckBonusWin() * $bet) )
-                {
-                    $return = [
-                        'none',
-                        0
-                    ];
-                }
-            }
-            else if( $spinWin == 1 )
-            {
-                $winLimit = $this->GetBank($garantType);
-                $return = [
-                    'win', 
-                    $winLimit
-                ];
-            }
-            if( $garantType == 'bet' && $this->GetBalance() <= (2 / $this->CurrentDenom) ) 
-            {
-                $randomPush = rand(1, 10);
-                if( $randomPush == 1 ) 
-                {
-                    $winLimit = $this->GetBank('');
-                    $return = [
-                        'win', 
-                        $winLimit
-                    ];
-                }
-            }
-            return $return;
-        }
-        public function getNewSpin($game, $spinWin = 0, $bonusWin = 0, $lines, $garantType = 'bet')
-        {
-            $curField = 10;
-            switch( $lines ) 
-            {
-                case 10:
-                    $curField = 10;
-                    break;
-                case 9:
-                case 8:
-                    $curField = 9;
-                    break;
-                case 7:
-                case 6:
-                    $curField = 7;
-                    break;
-                case 5:
-                case 4:
-                    $curField = 5;
-                    break;
-                case 3:
-                case 2:
-                    $curField = 3;
-                    break;
-                case 1:
-                    $curField = 1;
-                    break;
-                default:
-                    $curField = 10;
-                    break;
-            }
-            if( $garantType != 'bet' ) 
-            {
-                $pref = '_bonus';
-            }
-            else
-            {
-                $pref = '';
-            }
-            if( $spinWin && isset($game->game_win->{'winline' . $pref . $curField}) )
-            {
-                $win = explode(',', $game->game_win->{'winline' . $pref . $curField});
-            }
-            else if( $bonusWin && isset($game->game_win->{'winbonus' . $pref . $curField}) )
-            {
-                $win = explode(',', $game->game_win->{'winbonus' . $pref . $curField});
-            }
-            else
-            {
-                // Fallback if game_win properties are not set
-                return 0; // Or handle as an error/default case
-            }
-            $number = rand(0, count($win) - 1);
-            return $win[$number];
-        }
-        public function GetRandomScatterPos($rp, $rsym)
-        {
-            $rpResult = [];
-            for( $i = 0; $i < count($rp); $i++ ) 
-            {
-                if( $rp[$i] == $rsym ) 
-                {
-                    if( $rsym == '2' ) 
-                    {
-                        if( isset($rp[$i + 1]) && isset($rp[$i - 1]) ) 
-                        {
-                            array_push($rpResult, $i + 1);
-                        }
+                        \$reels['reel' . \$r][\$p] = '2c';
                     }
                     else
                     {
-                        if( isset($rp[$i + 1]) && isset($rp[$i - 1]) ) 
+                        if( isset(\$reels['reel' . (\$r - 1)][\$p]) && \$reels['reel' . (\$r - 1)][\$p] == '2c' )
                         {
-                            array_push($rpResult, $i);
+                            \$reels['reel' . \$r][\$p] = '2c';
                         }
-                        if( isset($rp[$i - 1]) && isset($rp[$i - 2]) ) 
+                        if( isset(\$reels['reel' . \$r][\$p - 1]) && \$reels['reel' . \$r][\$p - 1] == '2c' )
                         {
-                            array_push($rpResult, $i - 1);
-                        }
-                        if( isset($rp[$i + 1]) && isset($rp[$i + 2]) ) 
-                        {
-                            array_push($rpResult, $i + 1);
+                            \$reels['reel' . \$r][\$p] = '2c';
                         }
                     }
                 }
             }
-            shuffle($rpResult);
-            if( !isset($rpResult[0]) ) 
-            {
-                $rpResult[0] = rand(2, count($rp) - 3);
-            }
-            return $rpResult[0];
         }
-        public function GetCluster($reels)
+        return \$reels;
+    }
+
+    public function GetReelStrips(\$winType, \$slotEvent)
+    {
+        // Narcos specific reel strip logic
+        if( \$slotEvent == 'freespin' )
         {
-            for( $p = 0; $p <= 2; $p++ ) 
-            {
-                for( $r = 1; $r <= 5; $r++ ) 
-                {
-                    if( $reels['reel' . $r][$p] == '2' ) 
-                    {
-                        if( $p == 0 && $r == 1 ) 
-                        {
-                            $reels['reel' . $r][$p] = '2c';
-                        }
-                        else
-                        {
-                            if( isset($reels['reel' . ($r - 1)][$p]) && $reels['reel' . ($r - 1)][$p] == '2c' ) 
-                            {
-                                $reels['reel' . $r][$p] = '2c';
-                            }
-                            if( isset($reels['reel' . $r][$p - 1]) && $reels['reel' . $r][$p - 1] == '2c' ) 
-                            {
-                                $reels['reel' . $r][$p] = '2c';
-                            }
-                        }
+            \$reel = new GameReel(); // Assumes GameReel has reelsStripBonus
+            if(isset(\$reel->reelsStripBonus) && is_array(\$reel->reelsStripBonus)){
+                // Logic to assign bonus reels to \$this->reelStrip1 etc.
+                // This was simplified in Base, might need Narcos specific details.
+                // For example, if Narcos bonus reels are named differently or structure is different.
+                // For now, assuming base class reel strip properties are sufficient and populated by GameReel
+                // If Narcos GameReel->reelsStripBonus is numerically indexed array of reel strips:
+                \$stripKeys = ['reelStrip1', 'reelStrip2', 'reelStrip3', 'reelStrip4', 'reelStrip5', 'reelStrip6'];
+                \$idx = 0;
+                foreach(\$reel->reelsStripBonus as \$strip){
+                    if(isset(\$stripKeys[\$idx]) && is_array(\$strip) && count(\$strip) > 0){
+                         \$this->{\$stripKeys[\$idx]} = \$strip;
+                         \$idx++;
                     }
+                    if(\$idx >= count(\$stripKeys)) break;
                 }
             }
-            return $reels;
         }
-        public function GetGambleSettings()
-        {
-            $spinWin = rand(1, $this->WinGamble);
-            return $spinWin;
+
+        \$prs = [];
+        \$reelStripsToProcess = ['reelStrip1', 'reelStrip2', 'reelStrip3', 'reelStrip4', 'reelStrip5'];
+        if(isset(\$this->reelStrip6) && !empty(\$this->reelStrip6)) { // If game has 6 reels
+            \$reelStripsToProcess[] = 'reelStrip6';
         }
-        public function GetReelStrips($winType, $slotEvent)
+
+        if( \$winType != 'bonus' )
         {
-            // $game = $this->game; // game object is now a property
-            if( $slotEvent == 'freespin' )
+            foreach( \$reelStripsToProcess as \$index => \$reelStripName )
             {
-                $reel = new GameReel();
-                $fArr = $reel->reelsStripBonus;
-                foreach( [
-                    'reelStrip1', 
-                    'reelStrip2', 
-                    'reelStrip3', 
-                    'reelStrip4', 
-                    'reelStrip5', 
-                    'reelStrip6'
-                ] as $reelStrip ) 
+                if( is_array(\$this->\$reelStripName) && count(\$this->\$reelStripName) > 2 )
                 {
-                    $curReel = array_shift($fArr);
-                    if( count($curReel) ) 
-                    {
-                        $this->$reelStrip = $curReel;
-                    }
+                    \$prs[\$index + 1] = mt_rand(0, count(\$this->\$reelStripName) - 3);
+                } else {
+                    \$prs[\$index + 1] = 0;
                 }
             }
-            if( $winType != 'bonus' ) 
+        }
+        else // bonus winType for Narcos
+        {
+            \$randomBonusType = rand(1, 2); // Narcos specific logic for bonus reel positions
+            \$reelsId = range(1, count(\$reelStripsToProcess));
+
+            if( \$randomBonusType == 1 )
             {
-                $prs = [];
-                foreach( [
-                    'reelStrip1', 
-                    'reelStrip2', 
-                    'reelStrip3', 
-                    'reelStrip4', 
-                    'reelStrip5', 
-                    'reelStrip6'
-                ] as $index => $reelStrip ) 
-                {
-                    if( is_array($this->$reelStrip) && count($this->$reelStrip) > 0 ) 
-                    {
-                        $prs[$index + 1] = mt_rand(0, count($this->$reelStrip) - 3);
+                for( \$i = 0; \$i < count(\$reelsId); \$i++ ) {
+                    \$reelStripName = 'reelStrip' . \$reelsId[\$i];
+                    if( \$i == 0 || \$i == 2 || \$i == 4 ) { // Specific reels get scatters
+                        \$prs[\$reelsId[\$i]] = \$this->GetRandomScatterPos(\$this->\$reelStripName, '0'); // '0' for scatter
+                    } else {
+                        \$prs[\$reelsId[\$i]] = (is_array(\$this->\$reelStripName) && count(\$this->\$reelStripName) > 2) ? rand(0, count(\$this->\$reelStripName) - 3) : 0;
                     }
                 }
             }
             else
             {
-                $randomBonusType = rand(1, 2);
-                if( $randomBonusType == 1 ) 
-                {
-                    $reelsId = [
-                        1, 
-                        2, 
-                        3, 
-                        4, 
-                        5
-                    ];
-                    for( $i = 0; $i < count($reelsId); $i++ ) 
-                    {
-                        if( $i == 0 || $i == 2 || $i == 4 ) 
-                        {
-                            $prs[$reelsId[$i]] = $this->GetRandomScatterPos($this->{'reelStrip' . $reelsId[$i]}, '0');
-                        }
-                        else
-                        {
-                            $prs[$reelsId[$i]] = rand(0, count($this->{'reelStrip' . $reelsId[$i]}) - 3);
-                        }
-                    }
-                }
-                else
-                {
-                    $reelsId = [
-                        1, 
-                        2, 
-                        3, 
-                        4, 
-                        5
-                    ];
-                    $sCnt = rand(3, 5);
-                    for( $i = 0; $i < count($reelsId); $i++ ) 
-                    {
-                        if( $i < $sCnt ) 
-                        {
-                            $prs[$reelsId[$i]] = $this->GetRandomScatterPos($this->{'reelStrip' . $reelsId[$i]}, '2');
-                        }
-                        else
-                        {
-                            $prs[$reelsId[$i]] = rand(0, count($this->{'reelStrip' . $reelsId[$i]}) - 3);
-                        }
+                \$sCnt = rand(3, count(\$reelsId));
+                shuffle(\$reelsId);
+                for( \$i = 0; \$i < count(\$reelsId); \$i++ ) {
+                     \$reelStripName = 'reelStrip' . \$reelsId[\$i];
+                    if( \$i < \$sCnt ) { // Place scatters on \$sCnt reels
+                        \$prs[\$reelsId[\$i]] = \$this->GetRandomScatterPos(\$this->\$reelStripName, '2'); // '2' for another type of scatter/feature
+                    } else {
+                        \$prs[\$reelsId[\$i]] = (is_array(\$this->\$reelStripName) && count(\$this->\$reelStripName) > 2) ? rand(0, count(\$this->\$reelStripName) - 3) : 0;
                     }
                 }
             }
-            $reel = [
-                'rp' => []
-            ];
-            foreach( $prs as $index => $value ) 
-            {
-                $key = $this->{'reelStrip' . $index};
-                $cnt = count($key);
-                $key[-1] = $key[$cnt - 1];
-                $key[$cnt] = $key[0];
-                $reel['reel' . $index][0] = $key[$value - 1];
-                $reel['reel' . $index][1] = $key[$value];
-                $reel['reel' . $index][2] = $key[$value + 1];
-                $reel['reel' . $index][3] = '';
-                $reel['rp'][] = $value;
-            }
-            return $reel;
         }
-    }
 
+        \$reel = ['rp' => []];
+        foreach( \$prs as \$index => \$value )
+        {
+            \$reelStripName = 'reelStrip' . \$index;
+            \$key = \$this->\$reelStripName;
+            if(is_array(\$key) && count(\$key) > 0){
+                \$cnt = count(\$key);
+                \$safe_key_access = function(\$k_arr, \$idx) use (\$cnt) {
+                    if (\$idx < 0) return \$k_arr[\$cnt + \$idx];
+                    if (\$idx >= \$cnt) return \$k_arr[\$idx % \$cnt];
+                    return \$k_arr[\$idx];
+                };
+                \$value = max(0, min(\$value, \$cnt - 1));
+                if(\$cnt >=3){
+                    \$actual_value_for_rp = (\$value == 0) ? 1 : ((\$value == \$cnt-1) ? \$cnt-2 : \$value);
+                    \$reel['reel' . \$index][0] = \$safe_key_access(\$key, \$actual_value_for_rp - 1);
+                    \$reel['reel' . \$index][1] = \$safe_key_access(\$key, \$actual_value_for_rp);
+                    \$reel['reel' . \$index][2] = \$safe_key_access(\$key, \$actual_value_for_rp + 1);
+                } else {
+                    \$reel['reel' . \$index][0] = \$key[0]; \$reel['reel' . \$index][1] = \$key[0]; \$reel['reel' . \$index][2] = \$key[0];
+                }
+                \$reel['reel' . \$index][3] = '';
+                \$reel['rp'][] = \$value;
+            } else {
+                 \$reel['reel' . \$index][0] = 0; \$reel['reel' . \$index][1] = 0; \$reel['reel' . \$index][2] = 0; \$reel['reel' . \$index][3] = '';
+                 \$reel['rp'][] = 0;
+            }
+        }
+        return \$reel;
+    }
 }
+?>
