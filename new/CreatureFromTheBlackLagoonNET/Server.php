@@ -120,7 +120,6 @@ class Server
                     break;
 
                 case 'paytable':
-                    // This is often a large static string, ensure it's correctly defined or loaded
                     $stringResponsePart = 'pt.i0.comp.i19.symbol=SYM9&...'; // Placeholder from original
                     break;
 
@@ -162,19 +161,14 @@ class Server
                         $responseSlotBet = $betline;
                     }
 
-                    // Read desiredWinType from gameStateData
                     $desiredWinType = $gameStateData['desiredWinType'] ?? 'none';
-                    // $slotSettings->AllBet needs to be set if any subsequent logic (notably GetRandomPay if it were used) depends on it.
-                    // Since GetSpinSettings is removed and RTP logic is external, we only set it if essential for other parts.
-                    // For now, we assume no other part of PHP logic needs $slotSettings->AllBet.
-                    // If GetRandomPay or similar were to be called, ensure $slotSettings->AllBet = $allbetCoins; is set.
+                    // $slotSettings->AllBet = $allbetCoins; // Set if any internal PHP logic relies on it. Removed as per instructions.
 
                     $reels = []; $totalWin = 0; $lineWins = [];
 
                     for ($i = 0; $i <= 500; $i++) {
                         $totalWin = 0; $lineWinsThisLoop = []; $cWins = array_fill(0, $lines, 0);
                         $wild = ['1']; $scatter = '0';
-                        // Use desiredWinType for GetReelStrips
                         $tempReels = $slotSettings->GetReelStrips($desiredWinType, $currentSlotEvent);
 
                         if ($currentSlotEvent == 'freespin' && rand(1, 5) == 1 && ($slotSettings->GetGameData('CreatureFromTheBlackLagoonNETMonsterHealth') ?? 0) < 10) {
@@ -221,7 +215,6 @@ class Server
                         }}
                         if (($slotSettings->MaxWin > 0 && ($totalWin * $slotSettings->CurrentDenom) > $slotSettings->MaxWin)) { continue; }
 
-                        // Loop break conditions based on desiredWinType
                         $bonusTriggered = $scattersCount >= 3 || $wildsRespinCount >= 1 || ($currentSlotEvent == 'freespin' && $isMonsterShoot);
 
                         if ($desiredWinType == 'bonus') {
@@ -237,14 +230,11 @@ class Server
                                 $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
                             }
                         }
-                        // If loop finishes without meeting desiredWinType, it will use the last generated reels.
-                        // Consider adding a counter or specific logic if desiredWinType is hard to achieve.
-                        if ($i == 500) { // Max iterations reached
-                            // Potentially log a warning here if desiredWinType was not met.
+                        if ($i == 500) {
                             $reels = $tempReels; $lineWins = $lineWinsThisLoop; break;
                         }
                     }
-                    if(empty($reels) && isset($tempReels)) { $reels = $tempReels; $lineWins = $lineWinsThisLoop; } // Fallback
+                    if(empty($reels) && isset($tempReels)) { $reels = $tempReels; $lineWins = $lineWinsThisLoop; }
 
                     $finalReelsSymbols = $reels; $responseTotalWin = $totalWin; $responseWinLines = array_values($lineWins);
 
@@ -282,8 +272,7 @@ class Server
                         }
                     }
 
-                    $stringResponsePart = 'credit=' . round($slotSettings->GetBalance() * $slotSettings->CurrentDenom * 100); // Basic part
-                    // Add more details to stringResponsePart if client relies on it.
+                    $stringResponsePart = 'credit=' . round($slotSettings->GetBalance() * $slotSettings->CurrentDenom * 100);
 
                     $logData = [ "responseEvent" => "spin", "responseType" => $currentSlotEvent, "serverResponse" => [ /* ... data ... */ ] ];
                     $slotSettings->SaveLogReport(json_encode($logData), $allbetCoins * $slotSettings->CurrentDenom, $lines, $responseTotalWin * $slotSettings->CurrentDenom, $currentSlotEvent);
@@ -349,4 +338,4 @@ class Server
         exit; // Terminate script after successful response
     }
 }
->>>>>>> REPLACE
+?>
